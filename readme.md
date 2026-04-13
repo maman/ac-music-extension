@@ -17,7 +17,11 @@ Listen to the corresponding hourly music from the main Animal Crossing titles:
 'Raining' and 'snowing' variants are also included!
 
 ### Live Weather 🌧
-You can enable the "Live Weather" function so weather variants of the hourly music can be automatically picked according to the weather in your specified location!
+You can enable the "Live Weather" function so weather variants of the hourly music can be automatically picked according to the weather in your location.
+
+Live weather now uses Open-Meteo and supports:
+- browser geolocation from the options page
+- manual latitude / longitude input
 
 ### K.K. Slider 🎙
 Listen to K.K. Slider's songs! The extension features both 'live' and 'aircheck' version of his tunes.
@@ -43,7 +47,13 @@ To install the downloaded project, do the following:
 3. Enable the `Developer Mode` switch
 4. Click on `Load Unpacked`
 5. Choose the unzipped project directory
-6. Profit!
+6. Reload the extension after manifest changes so Chrome applies new permissions
+7. If you want to use browser-based live weather, allow the extension's geolocation permission when prompted
+
+### Technical Notes
+- The extension now uses Manifest V3.
+- Background playback uses an MV3 service worker plus an offscreen document for audio playback.
+- Live weather requests are fetched directly from Open-Meteo.
 
 ### Branch conventions
 - The `master` branch contains the latest published version of the extension. This is the stable branch.

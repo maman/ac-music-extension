@@ -113,7 +113,7 @@ var createSampler = function(audioContext) {
     var req = new XMLHttpRequest();
     req.responseType = 'arraybuffer';
     req.onload = reqListener;
-    req.open("get", chrome.extension.getURL('../sound/bells.ogg'), true);
+    req.open("get", chrome.runtime.getURL('sound/bells.ogg'), true);
     req.send();
   };
 
@@ -227,7 +227,7 @@ var createTunePlayer = function(audioContext, bpm) {
     return callbacks;
   };
 
-  return tunePlayer = {
+  return {
     availablePitches: availablePitches,
     playTune: playTune
   };

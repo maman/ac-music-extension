@@ -12,6 +12,7 @@
 	<script src="scripts/global/tune_player.js"></script>
 	<script src="scripts/options/tune_editor.js"></script>
 	<script src="scripts/background/KKSongs.js"></script>
+	<script src="scripts/global/weather_api.js"></script>
 	<script src="scripts/options/options.js"></script>
 	<script src="scripts/options/contributors.js"></script>
 	<style>
@@ -182,15 +183,16 @@
 						</div>
 
 						<div class="checkbox">
-							<input id="enable-background" type="checkbox"><label for="enable-background"><span></span>Allow for music to play when Chrome is closed. <a target="_blank" href="https://kb.nmsu.edu/73071">Background apps must also be enabled in Chrome's settings.</a></label>
+							<input id="enable-background" type="checkbox"><label for="enable-background"><span></span>Allow music to keep playing after the last Chrome window closes. This requires granting the extension background permission.</label>
 						</div>
 					</section>
 
 					<section id="live-weather-location">
 						<h3>Live Weather Location</h3>
-						<p>Select the location to fetch the live weather information from. The live weather synchronizes with the extension's music.<br />The first box is your <a href="https://worldpostalcode.com/" target="_blank">zip/post code</a>, the second is your <a href="https://countrycode.org/" target="_blank">ISO code (the two letters)</a></p> <div class="text">
-							<input type="text" id="zip-code" aria-label="Zip/Post Code" value="98052" placeholder="Zip/Post Code">
-							<input type="text" id="country-code" aria-label="ISO Code" value="US" placeholder="ISO Code">
+						<p>Select the coordinates to fetch live weather from. You can use your browser location or enter latitude and longitude manually.</p> <div class="text">
+							<input type="text" id="latitude" aria-label="Latitude" placeholder="Latitude">
+							<input type="text" id="longitude" aria-label="Longitude" placeholder="Longitude">
+							<button type="button" id="use-browser-location">Use Browser Location</button>
 							<button type="button" id="update-location">Update Location</button>
 							<p id="weather-response"></p>
 						</div>

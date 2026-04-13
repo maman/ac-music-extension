@@ -64,6 +64,7 @@ window.onload = function () {
 		document.getElementById(el).onclick = saveOptions;
 	});
 	document.getElementById('update-location').onclick = validateWeather;
+	document.getElementById('use-browser-location').onclick = useBrowserLocation;
 	document.getElementById('tab-audio-reduce-value').onchange = saveOptions;
 
 	exclamationElements.forEach(el => {
@@ -78,16 +79,19 @@ window.onload = function () {
 	enableBackgroundEl.onclick = () => {
 		chrome.permissions.contains({ permissions: ['background'] }, hasPerms => {
 			if (enableBackgroundEl.checked) {
-				chrome.permissions.contains({ permissions: ['background'] }, hasPerms => {
-					if (hasPerms) saveOptions();
-					else {
-						chrome.permissions.request({ permissions: ['background'] }, hasPerms => {
-							if (hasPerms) saveOptions();
-							else enableBackgroundEl.checked = false;
-						});
-					}
-				});
-			} else if (hasPerms) chrome.permissions.remove({ permissions: ['background'] });
+				if (hasPerms) saveOptions();
+				else {
+					chrome.permissions.request({ permissions: ['background'] }, granted => {
+						if (granted) saveOptions();
+						else {
+							enableBackgroundEl.checked = false;
+							saveOptions();
+						}
+					});
+				}
+			} else if (hasPerms) {
+				chrome.permissions.remove({ permissions: ['background'] }, () => saveOptions());
+			} else saveOptions();
 		});
 	}
 
@@ -114,8 +118,8 @@ function saveOptions() {
 	let enableTownTune = document.getElementById('enable-town-tune').checked;
 	let absoluteTownTune = document.getElementById('absolute-town-tune').checked;
 	let townTuneVolume   = document.getElementById('townTuneVolume').value;
-	let zipCode = document.getElementById('zip-code').value;
-	let countryCode = document.getElementById('country-code').value;
+	let latitude = document.getElementById('latitude').value.trim();
+	let longitude = document.getElementById('longitude').value.trim();
 	let enableBadgeText = document.getElementById('enable-badge').checked;
 	let enableBackground = document.getElementById('enable-background').checked;
 	let tabAudioReduceValue = document.getElementById('tab-audio-reduce-value').value;
@@ -179,8 +183,8 @@ function saveOptions() {
 		enableTownTune,
 		absoluteTownTune,
 		townTuneVolume,
-		zipCode,
-		countryCode,
+		latitude,
+		longitude,
 		enableBadgeText,
 		enableBackground,
 		tabAudio,
@@ -202,8 +206,8 @@ function restoreOptions() {
 		enableTownTune: true,
 		absoluteTownTune: false,
 		townTuneVolume: 0.75,
-		zipCode: "98052",
-		countryCode: "us",
+		latitude: '',
+		longitude: '',
 		enableBadgeText: true,
 		tabAudio: 'pause',
 		enableBackground: false,
@@ -224,10 +228,9 @@ function restoreOptions() {
 		document.getElementById('absolute-town-tune').checked = items.absoluteTownTune;
 		document.getElementById('townTuneVolume').value = items.townTuneVolume;
 		document.getElementById('townTuneVolumeText').innerHTML = `${formatPercentage(items.townTuneVolume*100)}`;
-		document.getElementById('zip-code').value = items.zipCode;
-		document.getElementById('country-code').value = items.countryCode;
+		document.getElementById('latitude').value = items.latitude;
+		document.getElementById('longitude').value = items.longitude;
 		document.getElementById('enable-badge').checked = items.enableBadgeText;
-		document.getElementById('enable-background').checked = items.enableBackground;
 		document.getElementById('tab-audio-' + items.tabAudio).checked = true;
 		document.getElementById('tab-audio-reduce-value').value = items.tabAudioReduceValue;
 		document.getElementById('kk-songs-selection-enable').checked = items.kkSelectedSongsEnable;
@@ -251,54 +254,55 @@ function restoreOptions() {
 			});
 			kkSongsSelect.options[songIndex].selected = 'selected';
 		});
+
+		chrome.permissions.contains({ permissions: ['background'] }, hasPerms => {
+			const enableBackground = items.enableBackground && hasPerms;
+			document.getElementById('enable-background').checked = enableBackground;
+
+			if (items.enableBackground && !hasPerms) {
+				chrome.storage.sync.set({ enableBackground: false });
+			}
+		});
 	});
 
 }
 
-function validateWeather() {
+async function validateWeather() {
 	let updateLocationEl = document.getElementById('update-location');
 	updateLocationEl.textContent = "Validating...";
 	updateLocationEl.disabled = true;
 
-	let zip = document.getElementById('zip-code').value.trim();
-	let country = document.getElementById('country-code').value.trim();
-	if (zip == '') {
-		responseMessage('You must specify a zip/post code.');
+	let latitude = normalizeCoordinate(document.getElementById('latitude').value.trim());
+	let longitude = normalizeCoordinate(document.getElementById('longitude').value.trim());
+	if (latitude == null) {
+		responseMessage('You must specify a valid latitude.');
 		return;
 	}
-	if (country == '') {
-		responseMessage('You must specify an ISO code.');
+	if (longitude == null) {
+		responseMessage('You must specify a valid longitude.');
 		return;
 	}
 
-	let url = `https://acmusicext.com/api/weather-v1/${country}/${zip}`;
-	let request = new XMLHttpRequest();
-
-	request.onload = function () {
-		let response;
-		try {
-			response = JSON.parse(request.responseText);
-		} catch (Exception) {
-			responseMessage();
-			return;
+	try {
+		let response = await fetch(buildOpenMeteoWeatherUrl(latitude, longitude), {
+			cache: 'no-store'
+		});
+		if (!response.ok) {
+			throw new Error(`Weather request failed with ${response.status}`);
 		}
 
-		if (request.status == 200) responseMessage(`Success! The current weather status in ${response.city}, ${response.country} is "${response.weather}"`, true);
-		else {
-			if (response.error) {
-				if ((response.error === "City not found") && (containsSpace(zip))) {
-					response.error += " – Try with only the first part of the zip code."
-				}
-				responseMessage(response.error);
-			}
-			else responseMessage();
+		let payload = await response.json();
+		let weatherCode = payload.current && payload.current.weather_code;
+		if (typeof weatherCode !== 'number') {
+			throw new Error('Weather response missing current.weather_code');
 		}
+
+		document.getElementById('latitude').value = latitude;
+		document.getElementById('longitude').value = longitude;
+		responseMessage(`Success! Current weather is "${describeOpenMeteoWeatherCode(weatherCode)}"`, true);
+	} catch (error) {
+		responseMessage(error.message);
 	}
-
-	request.onerror = () => responseMessage();
-
-	request.open("GET", url, true);
-	request.send();
 
 	function responseMessage(message = 'An unknown error occurred', success = false) {
 		let weatherResponseEl = document.getElementById('weather-response');
@@ -311,6 +315,37 @@ function validateWeather() {
 		updateLocationEl.textContent = "Update Location";
 		updateLocationEl.disabled = false;
 	}
+}
+
+function useBrowserLocation() {
+	let browserLocationEl = document.getElementById('use-browser-location');
+	let weatherResponseEl = document.getElementById('weather-response');
+
+	if (!navigator.geolocation) {
+		weatherResponseEl.style.color = "#d43939";
+		weatherResponseEl.textContent = 'Browser geolocation is not available.';
+		return;
+	}
+
+	browserLocationEl.textContent = 'Getting Location...';
+	browserLocationEl.disabled = true;
+
+	navigator.geolocation.getCurrentPosition((position) => {
+		document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+		document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+		weatherResponseEl.textContent = '';
+		browserLocationEl.textContent = 'Use Browser Location';
+		browserLocationEl.disabled = false;
+		void validateWeather();
+	}, () => {
+		weatherResponseEl.style.color = "#d43939";
+		weatherResponseEl.textContent = 'Could not get your browser location.';
+		browserLocationEl.textContent = 'Use Browser Location';
+		browserLocationEl.disabled = false;
+	}, {
+		enableHighAccuracy: true,
+		timeout: 10000
+	});
 }
 
 function updateChildrenState(disabled, childElement){
